@@ -1,0 +1,19 @@
+[package]
+name = "onlyrust"
+version = "0.1.0"
+edition = "2023"
+
+
+[dependencies]
+
+actix-web = "4" #for webdev
+
+actix-rt = "2.9.0"
+
+tokio = { version = "1", features = ["full"] } #for async tasks
+
+#sqlx = { version = "0.5", features = ["postgres"] } # for database
+
+serde = { version = "1", features = ["derive"] } #serialization
+
+rust-argon2 = "2.0" #hashing
