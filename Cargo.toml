@@ -1,18 +1,26 @@
 [package]
 name = "onlyrust"
-version = "0.1.0"
-edition = "2023"
+version = "1.74.0"
+edition = "2021"
 
 
 [dependencies]
 
+actix = "0.11.0" #idk wat this does
+
 actix-web = "4" #for webdev
 
-actix-rt = "2.9.0"
+actix-rt = "2.2"
 
 tokio = { version = "1", features = ["full"] } #for async tasks
 
-#sqlx = { version = "0.5", features = ["postgres"] } # for database
+rusqlite = "0.25.0" # for database
+
+chrono = "0.4.19" #date time
+
+rusoto_core = "0.45.0" #cloud storage
+
+rusoto_s3 = "0.45.0" #more cloud storage
 
 serde = { version = "1", features = ["derive"] } #serialization
 

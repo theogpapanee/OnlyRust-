@@ -1,0 +1,47 @@
+To do stuff with database:
+first open a connection with:
+let conn = Connection::open("test.db").expect("Failed");
+
+Then create tables with
+create_tables(&conn).expect("Failed to create tables");
+
+Create s3 client and bucket with:
+let s3_client = s3::create_s3_client();
+let bucket_name = "your-s3-bucket-name";
+
+To insert user:
+let user_id = insert_user(&conn, "johndoe@gmail.com", "username", "hashed_password").expect("Failed to insert user");
+
+To insert subscription:
+//sample start date:
+let start = Utc::now();
+let subscription_id = insert_subscription(&conn, user_id, "plan_type", start_date).expect("Failed to insert subscription");
+
+To insert file:
+insert_file_s3_and_database(&conn, user_id, "file_name", "file description", &s3_client, bucket_name);
+
+To access id by email or print if not
+let id = get_user_id_by_email(&conn, "example@email.com");
+match id {
+    Ok(Some(found_id)) => {
+        println!("User ID for {}: {}", "example@email.com", found_user_id);
+    }
+    Ok(None) => {
+        println!("User not found with email: {}", "example@email.com");
+    }
+    Err(_) => {
+        panic!("Failed to retrieve user ID");
+    }
+}
+
+Retrieve files by user ID:
+let files = get_files_by_user_id(&conn, user_id).expect("Failed to retrieve files by user ID");
+if files.is_empty() {
+    println!("No files found for user with ID: {}", user_id);
+} else {
+    println!("Files for user with ID {}: {:#?}", user_id, files);
+}
+
+Check if one user is subscribed to another:
+is_subscribed(user1: i64, user2: i64) -> bool;
+
