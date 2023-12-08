@@ -1,206 +1,219 @@
-use chrono::Utc;
-use rusoto_core::Region;
-use rusoto_s3::S3Client;
+
+
+use actix_files::Files;
+use actix_web::web::Bytes;
+use actix_multipart::Multipart;
+use futures::{StreamExt, TryStreamExt};
+use rusoto_core::{Region, RusotoError};
+use rusoto_credential::{StaticProvider, ProvideAwsCredentials};
+use rusoto_s3::{PutObjectRequest, S3, S3Client};
+use std::env;
+use chrono::{Utc, DateTime};
+
+
+use actix_web::{web, HttpResponse, Responder, HttpServer, App, Result};
+use rusqlite::{Connection, Error as RusqliteError};
+use rusqlite::params;
+
+#[derive(Debug)]
+struct User {
+    email: String,
+    username: String,
+    hashed_password: String,
+}
+//INCLUDING THE HTML BASICALL
+async fn index() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(include_str!("../static/index.html")) // Path 
+}
+
+async fn create_account(data: web::Form<FormData>) -> Result<HttpResponse> {
+    // EXTRACTING DATA FROM THE CREATE ACCOUNT PAGE
+    let email = &data.email;
+    let username = &data.username;
+    let hashed_password = &data.password; // Inputs 
+
+    // OPPERATIONS
+    match insert_user(&email, &username, &hashed_password) {
+        Ok(_) => Ok(HttpResponse::Ok().body("Account created successfully")),
+        Err(e) => {
+            eprintln!("Failed to insert user: {:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
+    }
+}
+//INSERTING THE LIST OF PEOPLE WHO ARE SUBBED
+pub fn insert_subscription(conn: &Connection, user_id: i64, user_unlocked: i64, plan_name: &str, start_date: DateTime<Utc>, price: f32) -> rusqlite::Result<i64> {
+    let end_date: DateTime<Utc> = end_date_calculator(&plan_name, start_date);
+    let mut stmt = conn.prepare("INSERT INTO subscriptions (user_id, plan_name, user_unlocked, start_date, end_date) VALUES (?1, ?2, ?3, ?4, ?5)")?;
+    stmt.execute(params![user_id, plan_name, user_unlocked, start_date.to_rfc3339(), end_date.to_rfc3339()])?;
+    Ok(conn.last_insert_rowid())
+}
+//CHECKS IF USER EXISTS AND RETURNS THEIR ID
+
+pub fn get_user_id_by_username(conn: &Connection, username: &str) -> rusqlite::Result<Option<i64>> {
+    let mut stmt = conn.prepare("SELECT id FROM users WHERE username = ?1")?;
+    let mut rows = stmt.query(params![username])?;
+
+    if let Some(row) = rows.next()? {
+        Ok(Some(row.get(0)?))
+    } else {
+        Ok(None)
+    }
+}
+
+//HOW YOU INSERT USERS
+fn insert_user(email: &str, username: &str, hashed_password: &str) -> Result<(), RusqliteError> {
+    let conn = Connection::open("test.db")?;
+    create_tables(&conn)?;
+
+    conn.execute(
+        "INSERT INTO users (email, username, hashed_password) VALUES (?1, ?2, ?3)",
+        &[email, username, hashed_password],
+    )?;
+    Ok(())
+}
+
+fn create_tables(conn: &Connection) -> Result<(), RusqliteError> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                email TEXT NOT NULL,
+                username TEXT NOT NULL,
+                hashed_password TEXT NOT NULL
+            )",
+        [],
+    )?;
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct FormData {
+    email: String,
+    username: String,
+    password: String,
+}
+
+async fn search_user(username: web::Query<Username>) -> impl Responder {
+    let conn = Connection::open("test.db").expect("Failed to open database");
+    
+    match get_user_id_by_username(&conn, &username.username) {
+        Ok(Some(_)) => HttpResponse::Ok().body("User Found!"),
+        Ok(None) => HttpResponse::NotFound().body("User not Found"),
+        Err(_) => HttpResponse::InternalServerError().body("Internal Server Error"),
+    }
+}
+
+fn end_date_calculator(plan_name: &str, start_date: DateTime<Utc>) -> DateTime<Utc>{
+    match plan_name {
+        "plan_a" => start_date + chrono::Duration::days(30),
+        "plan_b" => start_date + chrono::Duration::days(60), 
+        _ => Utc::now(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct Username {
+    username: String,
+}
+
+//BASICALLy RUNS THE WHOLE THING AND HELPS CREATE ACCOUNT
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new()
+            .route("/", web::get().to(index))
+            .route("/create_account", web::post().to(create_account)) 
+            .service(actix_files::Files::new("/static", "static").show_files_listing())
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
+}
+
+
+//NEW CODE THAT MIGHT WORK BETTER IF IMPLEMENTED
+
+/*
+
+use actix_web::{web, App, HttpServer, HttpResponse, Result};
+use actix_web::web::Bytes;
+use actix_multipart::Multipart;
+use futures::{StreamExt, TryStreamExt};
+use rusoto_core::{Region, RusotoError};
+use rusoto_credential::{StaticProvider, ProvideAwsCredentials};
+use rusoto_s3::{PutObjectRequest, S3, S3Client};
 use std::env;
 
-mod database;
-mod s3;
-mod passwordhash;
-mod account;
-
-//use database::{create_tables, insert_user, insert_subscription, insert_file_to_database, insert_file_s3_and_database, get_user_id_by_email, get_files_by_user_id, is_subscribed, get_user_balance, is_broke, verify_password_by_email};
-use database::{create_tables, insert_user, insert_subscription, get_user_id_by_username, get_user_balance, update_user_balance};
-use s3::{create_s3_client, insert_file_to_s3};
-use passwordhash::{hash_password, verify_password};
-use account::User;
-use dotenv::{dotenv};
-
-use crate::database::{is_subscribed, verify_password_by_email, is_broke};
-
-
-fn main() {
-    // Load environment variables from the .env file
-    let conn = rusqlite::Connection::open_in_memory().expect("Failed to open in-memory database");
-    create_tables(&conn).expect("Failed to create tables");
-
-    let user_id = insert_user(&conn, "test@example.com", "testuser", &hash_password("testpassword")).expect("Failed to insert user");
-    println!("{}", user_id);
-
-   let balance = get_user_balance(&conn, user_id);
-
-   match balance {
-      Ok(b) => println!("User balance: {}", b),
-      Err(err) => println!("Error getting user balance: {:?}", err),
-  }
-
-  let broke1 = is_broke(&conn, user_id, 10.0);
-
-  match broke1 {
-   Ok(true) => println!("GOOD BOYS"),
-   Ok(false) => println!("bad boys"),
-   Err(err) => println!("error: {:?}", err),
+async fn index() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(include_str!("../static/index.html"))
 }
 
-  let _jojo = update_user_balance(&conn, user_id, 10.0);
+async fn upload_file(mut payload: Multipart) -> Result<HttpResponse> {
+    while let Some(field) = payload.next().await {
+        let mut field = field?;
+        let content_type = field.content_disposition().ok_or_else(|| HttpResponse::BadRequest())?;
+        let filename = content_type.get_filename().unwrap_or("unnamed.png");
 
-  let broke2 = is_broke(&conn, user_id, 10.0);
+        let mut data = Bytes::new();
+        while let Some(chunk) = field.next().await {
+            let chunk = chunk?;
+            data.extend_from_slice(chunk.as_ref());
+        }
 
-  match broke2 {
-   Ok(true) => println!("bad boys"),
-   Ok(false) => println!("good boys"),
-   Err(err) => println!("error: {:?}", err),
+        let access_key = env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID not found");
+        let secret_key = env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY not found");
+        let region = Region::UsEast1;
+
+        let provider = StaticProvider::new_minimal(access_key, secret_key);
+        let client = S3Client::new_with(
+            rusoto_core::request::HttpClient::new().unwrap(),
+            provider,
+            region,
+        );
+
+        upload_to_s3(&client, &data, filename, "your_bucket_name").await?;
+
+        return Ok(HttpResponse::Ok().into());
+    }
+
+    Ok(HttpResponse::BadRequest().into())
 }
 
-  let balance = get_user_balance(&conn, user_id);
+async fn upload_to_s3(
+    client: &S3Client,
+    data: &[u8],
+    filename: &str,
+    bucket_name: &str,
+) -> Result<(), RusotoError<rusoto_s3::PutObjectError>> {
+    let request = PutObjectRequest {
+        bucket: bucket_name.to_owned(),
+        key: filename.to_owned(),
+        body: Some(data.into()),
+        ..Default::default()
+    };
 
-   match balance {
-      Ok(b) => println!("User balance: {} MONKEY", b),
-      Err(err) => println!("Error getting user balance: {:?}", err),
-  }
-
-
-
-
-   /*
-   let user_id2 = insert_user(&conn, "test2@example.com", "testusersec", &hash_password("testpassword")).expect("Failed to insert user");
-   println!("{}", user_id2);
-
-    let user_id_retrieved = get_user_id_by_username(&conn, "testuser");
-
-   match user_id_retrieved {
-         Ok(Some(user_id)) => {
-         println!("User ID retrieved: {}", user_id);
-      }
-      Ok(None) => {
-         println!("User not found");
-      }
-      Err(err) => {
-         println!("Error retrieving user ID: {:?}", err);
-      }
-   }
-
-    let start_date = Utc::now();
-    let subscription_id = insert_subscription(&conn, user_id, user_id2, "plan_a", start_date, 5.0).expect("Failed to insert subscription");
-    println!("{}", subscription_id);
-
-    
-    let login_attempt = verify_password_by_email(&conn, "test@example.com", "testpassword");
-    match login_attempt {
-       Ok(is_subscribed) => {
-           if is_subscribed {
-               println!("login success");
-           } else {
-               println!("login failed");
-           }
-       }
-       Err(err) => {
-           match err {
-               rusqlite::Error::QueryReturnedNoRows => {
-                   println!("User not found");
-               }
-               _ => {
-                   println!("Error checking subscription: {:?}", err);
-               }
-           }
-       }
-   }
-    
-    
-    */
-    
-   /*
-   let is_subscribed_result = is_subscribed(&conn, user_id, user_id2);
-   match is_subscribed_result {
-      Ok(is_subscribed) => {
-         if is_subscribed {
-               println!("is subbed");
-         } else {
-               println!("not subbed");
-         }
-      }
-      Err(err) => {
-         println!("Error checking subscription: {:?}", err);
-      }
-   }
-
-    let login_attempt = verify_password_by_email(&conn, "test@example.com", "testpassword");
-   match login_attempt {
-      Ok(is_subscribed) => {
-          if is_subscribed {
-              println!("login success");
-          } else {
-              println!("login failed");
-          }
-      }
-      Err(err) => {
-          match err {
-              rusqlite::Error::QueryReturnedNoRows => {
-                  println!("User not found");
-              }
-              _ => {
-                  println!("Error checking subscription: {:?}", err);
-              }
-          }
-      }
-  }
-   
-    */
-    
-
-
-   /*
-    // Initialize the connection to the database
-    let conn = rusqlite::Connection::open_in_memory().expect("Failed to open in-memory database");
-    create_tables(&conn).expect("Failed to create tables");
-
-    // Initialize S3 client
-    let s3_client = create_s3_client();
-
-    // Set up environment variables for AWS credentials
-    env::set_var("AWS_ACCESS_KEY_ID", "your_access_key_id");
-    env::set_var("AWS_SECRET_ACCESS_KEY", "your_secret_access_key");
-
-    // Test user insertion
-    let user_id = insert_user(&conn, "test@example.com", "testuser", &hash_password("testpassword")).expect("Failed to insert user");
-    
-    // Test subscription insertion
-    let start_date = Utc::now();
-    let subscription_id = insert_subscription(&conn, user_id, 0, "plan_a", start_date).expect("Failed to insert subscription");
-
-    // Test file insertion to the database
-    let file_id = insert_file_to_database(&conn, user_id, "test_file.txt", "File description", "uploads/test_file.txt", start_date).expect("Failed to insert file");
-
-    // Test file insertion to S3 and the database
-    let vector_of_ones: Vec<u8> = vec![1; 10];
-    insert_file_s3_and_database(&conn, user_id, "test_file.txt", "File description", &s3_client, vector_of_ones, "rustproejctbucket").expect("Failed to insert file to S3");
-
-    // Test getting user ID by email
-    let retrieved_user_id = get_user_id_by_email(&conn, "test@example.com").expect("Failed to get user ID by email").unwrap();
-    assert_eq!(user_id, retrieved_user_id);
-
-    // Test getting files by user ID
-    let files = get_files_by_user_id(&conn, user_id).expect("Failed to get files by user ID");
-    assert_eq!(files.len(), 2); // Assuming two files are inserted
-
-    // Test subscription status
-    let is_subscribed = is_subscribed(&conn, user_id, 0).expect("Failed to check subscription status");
-    assert!(is_subscribed);
-
-    // Test getting user balance
-    let balance = get_user_balance(&conn, user_id).expect("Failed to get user balance");
-    assert_eq!(balance, 0.0); // Assuming the default balance is 0.0
-
-    // Test if the user is broke
-    let is_broke = is_broke(&conn, user_id, 10).expect("Failed to check if the user is broke");
-    assert!(is_broke); // Assuming the balance is less than 10
-
-    // Test password verification
-    let is_password_correct = verify_password_by_email(&conn, "test@example.com", "testpassword").expect("Failed to verify password");
-    assert!(is_password_correct);
-
-    // Clean up: You may want to drop tables or close the connection after testing.
-   
-   
-    */
-
+    client.put_object(request).await.map(|_| ())
 }
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new()
+            .route("/", web::get().to(index))
+            .route("/upload", web::post().to(upload_file))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
+}
+ */
+/*use actix_files::Files;
+[dependencies]
+actix-web = "4.4.0"
+actix-files = "0.6.2" */
+
+
