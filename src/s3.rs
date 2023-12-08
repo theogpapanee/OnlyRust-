@@ -1,5 +1,6 @@
 use rusoto_core::{Region, RusotoError};
-use rusoto_s3::{PutObjectRequest, DeleteObjectRequest, S3, S3Client};
+use rusoto_s3::{PutObjectRequest, S3, S3Client};
+use crate::env;
 
 pub fn create_s3_client() -> S3Client {
     let access_key = env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID not set");
@@ -14,7 +15,7 @@ pub fn create_s3_client() -> S3Client {
     )
 }
 
-pub fn insert_file_to_s3(s3_client: &S3Client, bucket_name: &str, file_name: &str, file_content: Vec<u8>) -> Result<(), RusotoError<rusoto_s3::PutObjectError>>{
+pub async fn insert_file_to_s3(s3_client: &S3Client, bucket_name: &str, file_name: &str, file_content: Vec<u8>) -> Result<(), RusotoError<rusoto_s3::PutObjectError>>{
     let request = PutObjectRequest {
         bucket: bucket_name.to_string(),
         key: file_name.to_string(),
@@ -22,7 +23,7 @@ pub fn insert_file_to_s3(s3_client: &S3Client, bucket_name: &str, file_name: &st
         ..Default::default()
     };
 
-    s3_client.put_object(request).sync()?;
+    s3_client.put_object(request).await?;
 
     Ok(())
 

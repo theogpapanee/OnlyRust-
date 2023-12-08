@@ -1,0 +1,21 @@
+FIRST DO THIS:
+let conn = rusqlite::Connection::open_in_memory().expect("Failed to open in-memory database");
+create_tables(&conn).expect("Failed to create tables");
+
+pub fn insert_user(conn: &Connection, email: &str, username: &str, password_hash: &str) -> rusqlite::Result<i64>
+
+pub fn insert_subscription(conn: &Connection, user_id: i64, user_unlocked: i64, plan_name: &str, start_date: DateTime<Utc>, price: f32) -> rusqlite::Result<i64>
+
+fn end_date_calculator(plan_name: &str, start_date: DateTime<Utc>) -> DateTime<Utc>
+
+pub fn is_subscribed(conn: &Connection, subscriber_id: i64, user_unlocked: i64) -> rusqlite::Result<bool>
+
+pub fn verify_password_by_email(conn: &Connection, email: &str, provided_password: &str) -> rusqlite::Result<bool> 
+
+pub fn update_user_balance(conn: &Connection, user_id: i64, new_balance: f64) -> rusqlite::Result<()>
+
+pub fn get_user_id_by_username(conn: &Connection, username: &str) -> rusqlite::Result<Option<i64>>
+
+pub fn get_user_balance(conn: &Connection, user_id: i64) -> rusqlite::Result<f64>
+
+pub fn is_broke(conn: &Connection, user_id: i64, price: f64) -> Result<bool, rusqlite::Error>

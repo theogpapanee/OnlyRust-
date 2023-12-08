@@ -10,12 +10,12 @@ let s3_client = s3::create_s3_client();
 let bucket_name = "your-s3-bucket-name";
 
 To insert user:
-let user_id = insert_user(&conn, "johndoe@gmail.com", "username", "hashed_password").expect("Failed to insert user");
+let user_id = insert_user(&conn, "johndoe@gmail.com", "username", "hashed_password", 0.0).expect("Failed to insert user");
 
 To insert subscription:
 //sample start date:
 let start = Utc::now();
-let subscription_id = insert_subscription(&conn, user_id, "plan_type", start_date).expect("Failed to insert subscription");
+let subscription_id = insert_subscription(&conn, user_id, "plan_type", start_date, subscription_price).expect("Failed to insert subscription");
 
 To insert file:
 insert_file_s3_and_database(&conn, user_id, "file_name", "file description", &s3_client, bucket_name);
@@ -44,4 +44,16 @@ if files.is_empty() {
 
 Check if one user is subscribed to another:
 is_subscribed(user1: i64, user2: i64) -> bool;
+
+Money:
+Update user balance by:
+update_user_balance(conn, userid, newbalance)
+
+Get balance with:
+pub fn get_user_balance(conn: &Connection, user_id: i64) -> rusqlite::Result<f64> {
+}
+
+Verify password by email:
+verify_raw_password(raw_password: &str, hashed_password: &str) -> bool;
+
 
