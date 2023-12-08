@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OnlyRust</title>
+  <style>
+    /* Basic styling */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    header {
+      background-color: #333;
+      color: #fff;
+      padding: 20px 0;
+      text-align: center;
+      position: relative; /* Needs to be improved 'Coins' button */
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2em;
+    }
+    .navigation-buttons {
+      margin-top: 20px;
+    }
+    .navigation-buttons button {
+      margin: 5px;
+      padding: 10px 20px;
+      background-color: #f5deb3; /* Beige color */
+      color: #333;
+      border: none;
+      cursor: pointer;
+      border-radius: 20px; /* Cool round edges (took longer than i thought tbh) */
+      font-size: 16px;
+      transition: background-color 0.3s ease; /* Color transitions */
+    }
+    .navigation-buttons button:hover {
+      background-color: #e0cba9; /* Lighter beige on hover */
+    }
+    .container {
+      width: 80%;
+      margin: auto;
+      padding: 20px;
+    }
+    main {
+      text-align: center;
+    }
+    .login-container, .about-container, .home-container, .create-account-container {
+      text-align: center;
+      display: none;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #fff;
+      margin-bottom: 20px;
+    }
+    .login-container h2, .about-container h2, .home-container h2, .create-account-container h2 {
+      margin-bottom: 15px;
+    }
+    .login-form, .create-account-form {
+      width: 300px;
+      margin: 0 auto;
+    }
+    .login-form input, .create-account-form input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    .login-form button, .create-account-form button {
+      width: 100%;
+      padding: 12px;
+      background-color: #333;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    footer {
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      padding: 10px 0;
+      width: 100%;
+      position: fixed;
+      bottom: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Clowns Unite</h1>
+    <button onclick="showCoinsPage()" style="position: absolute; left: 10px; top: 20px;">Coins</button>
+    <div class="navigation-buttons">
+      <button onclick="showHomePage()">Home</button>
+      <button onclick="showLoginPage()">Login</button>
+      <button onclick="showAboutPage()">About Us</button>
+    </div>
+  </header>
+
+<!-- Search Bar -->
+      <div style="text-align: center; margin-top: 20px;">
+        <form id="searchForm">
+          <label for="search">Search Up a User:</label>
+          <input type="text" id="search" name="search" placeholder="Enter username">
+          <input type="submit" value="Search">
+        </form>
+        <p id="searchResult"></p>
+      </div>
+      <!-- End of Search Bar -->
+  <div class="container">
+    <main>
+      <!-- Login Page -->
+      <div class="login-container" id="login-page">
+        <h2>Login</h2>
+        <form class="login-form">
+          <input type="text" placeholder="Username"><br>
+          <input type="password" placeholder="Password"><br>
+          <button type="submit">Login</button>
+        </form>
+        <div class="create-account-container" id="create-account-page" style="display: none;">
+          <h2>Create an Account</h2>
+          <form class="create-account-form" onsubmit="createAccount(event)">
+            <input type="text" id="create-username" placeholder="Username" required><br>
+            <input type="email" id="create-email" placeholder="Email" required><br>
+            <input type="password" id="create-password" placeholder="Password" required><br>
+            <button type="submit">Create Account</button>
+          </form>
+        </div>
+        <button onclick="toggleCreateAccount()">Create Account</button>
+      </div>
+
+      <!-- Home Page, About Us remain unchanged -->
+      <div class="home-container" id="home-page">
+        <h2>Home</h2>
+        <p>Hello people who run the Honors program.</p>
+      </div>
+
+      <div class="about-container" id="about-page">
+        <h2>About Us</h2>
+        <p>Welcome to our project OnlyRust, a subscription-based media-sharing platform that allows files to be stored on the cloud, with other users able to access them. Theres also a currency system, by which users can pay to access certain files (and you get unlimited free money!!!!!). Your accounts will be safe and secure with our password hashing system! Functionality will be laser-fast with the speedy rust! And most of all, youll be able to "pay" for all exclusive access to the deepest darkest most exclusive files on the internet!</p>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    <p>OnlyRust</p>
+  </footer>
+  
+  <script>
+    function showHomePage() {
+      hideAllContainers();
+      document.getElementById("home-page").style.display = "block";
+    }
+
+    function showLoginPage() {
+      hideAllContainers();
+      document.getElementById("login-page").style.display = "block";
+    }
+
+    function showAboutPage() {
+      hideAllContainers();
+      document.getElementById("about-page").style.display = "block";
+    }
+
+    function toggleCreateAccount() {
+      var createAccountPage = document.getElementById("create-account-page");
+      createAccountPage.style.display = (createAccountPage.style.display === "none" || createAccountPage.style.display === "") ? "block" : "none";
+    }
+
+    function hideAllContainers() {
+      var containers = document.querySelectorAll('.login-container, .about-container, .home-container, .create-account-container');
+      containers.forEach(function(container) {
+        container.style.display = "none";
+      });
+    }
+
+    function showCoinsPage() {
+      alert('Coins page will be displayed or some coin-related action will be triggered.');
+    }
+function createSubscribeButton(subscribeCallback) {
+    const subscribeButton = document.createElement('button');
+    subscribeButton.textContent = 'Subscribe';
+    subscribeButton.addEventListener('click', subscribeCallback);
+    return subscribeButton;
+  }
+
+  document.getElementById("searchForm").addEventListener("submit", function(event) {
+    event.preventDefault(); // default behavior
+
+    const searchValue = document.getElementById("search").value;
+
+    fetch(`/search_user?username=${encodeURIComponent(searchValue)}`)
+      .then(response => {
+        if (response.ok) {
+          return response.text(); // assume contains text data
+        } else {
+          return response.text();
+        }
+      })
+      .then(data => {
+        const searchResult = document.getElementById("searchResult");
+        searchResult.innerText = data; // display the search result
+
+        // Create and append the subscribe button
+        const subscribeButton = createSubscribeButton(() => {
+          if (data === 'User Found!') {
+            searchResult.innerText = 'You have subscribed!';
+          } else {
+            searchResult.innerText = 'Cannot subscribe - User not found';
+          }
+        });
+
+        searchResult.appendChild(subscribeButton);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        document.getElementById("searchResult").innerText = 'Error occurred while searching';
+      });
+  });
+    function createAccount(event) {
+      event.preventDefault();
+      const username = document.getElementById('create-username').value;
+      const email = document.getElementById('create-email').value;
+      const password = document.getElementById('create-password').value;
+      alert(`Creating account...\nUsername: ${username}\nEmail: ${email}\nPassword: ${password}`);
+    }
+  </script>
+</body>
+</html>
