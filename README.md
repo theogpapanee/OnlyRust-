@@ -7,7 +7,7 @@ Christopher Nee - cnee2
 We will be building a subscription-based media-sharing platform that allows files to be stored on the cloud, with other users being able to access them. We will be implementing an account system with password protection. We will also be implementing a currency system, by which users can pay to access certain files. This will be the outline of an online marketplace. 
 
 # Technical Overview:
-1. First create a HTTP website, perhaps using tide.
+1. First create a HTTP website, perhaps using tide library.
 
 2. Create an account system, protected by user-generated passwords
 
